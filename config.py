@@ -1,0 +1,26 @@
+import os
+# postgres://mukeshsardiwal:<your_password>@localhost:5432/postgres
+DB_USER = os.getenv("POSTGRES_USER", "mukeshsardiwal")
+DB_PASS = os.getenv("POSTGRES_PASSWORD", "your_password")
+DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
+DB_NAME = os.getenv("POSTGRES_DB", "edms")
+DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+
+TORTOISE_ORM = {
+    "connections": {
+        "default": f"postgres://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+    },
+    "apps": {
+        "models": {
+            "models": [
+                "models.admin",
+                "models.device",
+                # "models.devicehistory",
+                "models.employee",
+            ],
+            "default_connection": "default",
+        }
+    },
+    "use_tz": False,
+    "timezone": "UTC"
+}

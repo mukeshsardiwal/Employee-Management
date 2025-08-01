@@ -32,11 +32,10 @@ async def logout(request: Request):
             {"error": "Missing or invalid Authorization header"}, status=401
         )
 
-    token = auth_header[7:]  # Remove "Bearer "
+    token = auth_header[7:] 
 
     try:
         payload = decode_jwt(token)
-        # Optional: Token blacklist logic can be added here
         return response.json({"message": "Logged out successfully"})
     except Exception:
         return response.json({"error": "Invalid or expired token"}, status=401)

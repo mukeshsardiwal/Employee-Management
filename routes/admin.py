@@ -112,7 +112,7 @@ async def add_device(request):
         "serial_number": device.serial_number,
         "status": device.status.value,
         "assigned_to": device.assigned_to,
-        "created_at": device.created_at.isoformat()  # <-- FIX here
+        "created_at": device.created_at.isoformat() 
     }, status=201)
 
 #Delete-Device 
@@ -146,9 +146,8 @@ async def assign_device(request, device_id, employee_id):
         device.assigned_at = datetime.utcnow()
         await device.save()
 
-        # ✅ Log history after successful assignment
         await DeviceHistory.create(
-            device_id=device.id,  # ⚠️ Use device.id, not device object!
+            device_id=device.id,  
             action=DeviceAction.ASSIGNED,
             notes=f"Assigned to employee_id: {emp.employee_id}"
         )
@@ -213,7 +212,6 @@ async def deallocate_device(request):
     if not device_id:
         return json({"error": "Missing device_id"}, status=400)
     
-    # Look up Device by your custom device_id
     device = await Device.get_or_none(device_id=device_id)
     if not device:
         return json({"error": "Device not found"}, status=404)
@@ -222,9 +220,8 @@ async def deallocate_device(request):
     
     employee = await device.assigned_to
     
-    # ✅✅✅ Use device.id (the numeric primary key), not device.device_id (your string)
     await DeviceHistory.create(
-        device_id=device.id,  # <--- This is the FIX
+        device_id=device.id,
         action=DeviceAction.RETURNED,
         notes=f"Deallocated from employee ID: {employee.employee_id}"
     )
@@ -237,7 +234,6 @@ async def deallocate_device(request):
     return json({
         "message": f"Device {device.device_id} deallocated from employee {employee.name} ({employee.employee_id})."
     }, status=200)
-
 
 #switch
 @admin_bp.route("/switch-device/<device_id>/<new_employee_id>", methods=["POST"])

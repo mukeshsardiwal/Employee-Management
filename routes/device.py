@@ -4,26 +4,43 @@ from models.devicehistory import DeviceHistory
 device_bp = Blueprint('device', url_prefix='/devices')
 
 #All-Device
-@device_bp.route("/all-devices",methods=["GET"])
+@device_bp.route("/all-devices", methods=["GET"])
 async def all_devices(request):
-    # print(request.query_params())
+    try:
+        page_no = int(request.args.get("page_no", 1))
+        page_size = int(request.args.get("page_size", 10))
+        if page_no < 1 or page_size < 1:
+            return response.json(
+                {"error": "page_no and page_size must be at least 1"}, 
+                status=400
+            )
+    except ValueError:
+        return response.json(
+            {"error": "page_no and page_size must be integers"}, 
+            status=400
+        )
+    offset = (page_no - 1) * page_size
 
-    devices = await Device.all()
+    devices = (
+        await Device.all()
+        .order_by("device_id")
+        .offset(offset)
+        .limit(page_size)
+    )
+
     device_lst = []
     for device in devices:
         device_lst.append({
-        "device_id":device.device_id,
-        "device_type": device.device_type,
-        "brand": device.brand,
-        "model": device.model,
-        "serial_number": device.serial_number,
-        "status": device.status.value, 
-        "assigned_to_id": device.assigned_to_id if hasattr(device, 'assigned_to_id') else None,
-})
+            "device_id": device.device_id,
+            "device_type": device.device_type,
+            "brand": device.brand,
+            "model": device.model,
+            "serial_number": device.serial_number,
+            "status": device.status.value,
+            "assigned_to_id": device.assigned_to_id if hasattr(device, 'assigned_to_id') else None,
+        })
+    return response.json({"msg":device_lst})
 
-    return response.json({"Devices":device_lst})
-
-# Pagination - Per Page / Page No.
 #Device-Detail
 @device_bp.route("/device-detail/<device_id>",methods=["GET"])
 async def device_detail(request,device_id):
@@ -46,7 +63,8 @@ async def device_detail(request,device_id):
         })
     
     return response.json({"Device Detail": device_detail})
-    
+
+#Device-History
 @device_bp.route("/device-history/<device_id:str>", methods=["GET"])
 async def get_device_history(request, device_id):
     device = await Device.get_or_none(device_id=device_id)

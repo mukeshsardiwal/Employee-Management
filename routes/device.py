@@ -1,6 +1,6 @@
 from sanic import Blueprint,response
 from models.device import Device
-
+from models.devicehistory import DeviceHistory
 device_bp = Blueprint('device', url_prefix='/devices')
 
 #All-Device
@@ -47,3 +47,24 @@ async def device_detail(request,device_id):
     
     return response.json({"Device Detail": device_detail})
     
+@device_bp.route("/device-history/<device_id:str>", methods=["GET"])
+async def get_device_history(request, device_id):
+    device = await Device.get_or_none(device_id=device_id)
+    if not device:
+        return response.json({"error": "Device not found"}, status=404)
+
+    history = await DeviceHistory.filter(device=device).order_by("-timestamp").all()
+
+    history_list = [
+        {
+            "action": h.action.value,
+            "timestamp": h.timestamp.isoformat(),
+            "notes": h.notes,
+        }
+        for h in history
+    ]
+
+    return response.json({
+        "device_id": device.device_id,
+        "history": history_list
+    })

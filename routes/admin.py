@@ -5,6 +5,7 @@ from models.device import Device
 from sanic import Blueprint, response,json
 from utils.auth import hash_password
 from datetime import datetime
+from models.devicehistory import DeviceHistory,DeviceAction
 
 
 admin_bp = Blueprint("admin", url_prefix="/admin")
@@ -133,26 +134,34 @@ async def assign_device(request, device_id, employee_id):
         return response.json({"error": "Device not found"}, status=404)
     
     if device.status in [DeviceStatus.ASSIGNED, DeviceStatus.RETIRED, DeviceStatus.UNDER_REPAIR]:
-        return response.json({"error": "Cannot assign device with current status"}, status=400) 
+        return response.json({"error": "Cannot assign device with current status"}, status=400)
     
     emp = await Employee.get_or_none(employee_id=employee_id)
     if not emp:
         return response.json({"error": "Employee not found"}, status=404)
     
     if device.status == DeviceStatus.AVAILABLE:
-        device.assigned_to_id = employee_id 
-        device.status = DeviceStatus.ASSIGNED     
+        device.assigned_to_id = employee_id
+        device.status = DeviceStatus.ASSIGNED
+        device.assigned_at = datetime.utcnow()
         await device.save()
+
+        # ✅ Log history after successful assignment
+        await DeviceHistory.create(
+            device_id=device.id,  # ⚠️ Use device.id, not device object!
+            action=DeviceAction.ASSIGNED,
+            notes=f"Assigned to employee_id: {emp.employee_id}"
+        )
 
         return response.json({
             "message": f"Device {device.device_id} successfully assigned to employee {emp.name}",
             "device": {
                 "device_id": device.device_id,
                 "status": device.status.value,
-                "assigned_to": emp.employee_id
+                "assigned_to": emp.name
             }
         }, status=200)
-
+    
     return response.json(
         {
             "error": f"Cannot assign device. Device status is '{device.status.value}'. Only 'Available' devices can be assigned.",
@@ -197,30 +206,38 @@ async def update_device_status(request, device_id):
 
 #deallocate-Device
 @admin_bp.route("/deallocate-device", methods=["POST"])
+@admin_bp.route("/deallocate-device", methods=["POST"])
 async def deallocate_device(request):
     data = request.json or {}
     device_id = data.get("device_id")
-
     if not device_id:
         return json({"error": "Missing device_id"}, status=400)
-
-    device = await Device.get_or_none(device_id=device_id).select_related("assigned_to")
-
+    
+    # Look up Device by your custom device_id
+    device = await Device.get_or_none(device_id=device_id)
     if not device:
         return json({"error": "Device not found"}, status=404)
-
-    if not device.assigned_to:
+    if not device.assigned_to_id:
         return json({"error": "Device is already unassigned"}, status=400)
-
-    employee = device.assigned_to
-
+    
+    employee = await device.assigned_to
+    
+    # ✅✅✅ Use device.id (the numeric primary key), not device.device_id (your string)
+    await DeviceHistory.create(
+        device_id=device.id,  # <--- This is the FIX
+        action=DeviceAction.RETURNED,
+        notes=f"Deallocated from employee ID: {employee.employee_id}"
+    )
+    
     device.assigned_to = None
     device.status = "Available"
+    device.deallocated_at = datetime.utcnow()
     await device.save()
-
+    
     return json({
-        "message": f"Device {device.device_id} deallocated successfully from employee {employee.name} ID: {employee.employee_id})."
+        "message": f"Device {device.device_id} deallocated from employee {employee.name} ({employee.employee_id})."
     }, status=200)
+
 
 #switch
 @admin_bp.route("/switch-device/<device_id>/<new_employee_id>", methods=["POST"])

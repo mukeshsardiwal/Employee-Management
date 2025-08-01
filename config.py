@@ -15,7 +15,7 @@ TORTOISE_ORM = {
             "models": [
                 "models.admin",
                 "models.device",
-                # "models.devicehistory",
+                "models.devicehistory",
                 "models.employee",
             ],
             "default_connection": "default",
